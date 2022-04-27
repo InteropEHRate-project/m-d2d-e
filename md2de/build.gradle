@@ -1,0 +1,121 @@
+apply plugin: 'com.android.library'
+apply plugin: "maven-publish"
+//apply plugin: 'com.android.application'
+group = "eu.interopehrate"
+version="0.3.5"
+
+android {
+    compileSdkVersion 28
+    defaultConfig {
+//        applicationId "gr.uprc.europeanprojects.iehr.d2d.m_d2d_e"
+        minSdkVersion 15
+        targetSdkVersion 28
+        versionCode 1
+        versionName "1.0"
+        multiDexEnabled true//new!!!
+        //
+        setProperty("archivesBaseName", "$archivesBaseName-$version")
+        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.debug
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = '1.8'
+        targetCompatibility = '1.8'
+    }
+    lintOptions {
+        checkReleaseBuilds false // Add this
+        abortOnError false
+    }
+}
+
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    implementation 'com.android.support:appcompat-v7:28.0.0'
+    implementation 'com.android.support.constraint:constraint-layout:2.0.4'
+    //implementation project(path: ':encryptedcomunication-0.0.2')
+    //implementation project(path: ':d2d_commons_0.0.9')
+    api "eu.interoperhate:encryptedcomunication:0.0.2"
+    implementation 'com.google.code.gson:gson:2.8.6'
+    api "eu.interopehrate:r2d-d2d-commons:0.0.7"
+    testImplementation 'junit:junit:4.12'
+    androidTestImplementation 'com.android.support.test:runner:1.0.2'
+    implementation 'ca.uhn.hapi.fhir:hapi-fhir-android:4.1.0'
+    implementation 'ca.uhn.hapi.fhir:hapi-fhir-structures-r4:4.1.0'
+    implementation group: 'com.googlecode.json-simple', name: 'json-simple', version: '1.1.1'
+    androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2', {
+        exclude group: 'com.google.code.findbugs', module: 'jsr305'
+    }
+    api 'org.bouncycastle:bcprov-jdk15on:1.54'
+    api 'org.bouncycastle:bcpkix-jdk15on:1.54'
+}
+
+configurations {
+    all*.exclude group: 'org.codehaus.woodstox'
+    all*.exclude group: 'org.apache.httpcomponents'
+}
+//
+//
+/*
+ * Configuration of a task, for publishing mrd2e.arr into a Nexus Repository
+ */
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            artifactId = "md2de"
+            artifact("build/outputs/aar/$archivesBaseName"+"-release.aar") {
+//            artifact("build/outputs/aar/lib-debug.aar") {
+                extension "aar"
+
+                // adds dependencies to the generated POM
+                pom.withXml {
+                    def dependenciesNode = asNode().appendNode('dependencies')
+
+                    //Iterate over the dependencies, adding a <dependency> node for each
+                    configurations.releaseCompileClasspath.allDependencies.each {
+                        if (it.group != null && it.name != null) {
+                            def dependencyNode = dependenciesNode.appendNode('dependency')
+                            dependencyNode.appendNode('groupId', it.group)
+                            dependencyNode.appendNode('artifactId', it.name)
+                            dependencyNode.appendNode('version', it.version)
+
+                            //If there are any exclusions in dependency
+                            if (it.excludeRules.size() > 0) {
+                                def exclusionsNode = dependencyNode.appendNode('exclusions')
+                                it.excludeRules.each { rule ->
+                                    def exclusionNode = exclusionsNode.appendNode('exclusion')
+                                    exclusionNode.appendNode('groupId', rule.group)
+                                    exclusionNode.appendNode('artifactId', rule.module)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // descriptive information to add to the generated POM file
+            pom {
+                name = 'MD2DE  Library'
+                description = 'Android library (developed by InteropEHRate consortium) for interacting with HCPs adopting D2D protocol.'
+                url = 'http://www.interopehrate.eu'
+            }
+        }
+    }
+
+    repositories {
+        maven {
+            name "IEHR-Nexus"
+            url "http://213.249.46.206:8081/repository/maven-releases/"
+            credentials {
+                username project.repoUser
+                password project.repoPassword
+            }
+        }
+    }
+}
